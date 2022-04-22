@@ -1,0 +1,4 @@
+fxcmpy
+pandas
+forexconnect
+requests
