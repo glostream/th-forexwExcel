@@ -1,4 +1,4 @@
 fxcmpy
 pandas
-forexconnect
 requests
+psycopg
