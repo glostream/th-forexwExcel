@@ -1,4 +1,7 @@
 env/
 archive/
-keys/
+keys.py
+clientportal.beta.gw/
+clientportal.beta.gw.zip
 notes.md
+app.log

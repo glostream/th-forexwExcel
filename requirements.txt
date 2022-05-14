@@ -1,4 +1,6 @@
 fxcmpy
 pandas
 requests
-psycopg
+trading_ig
+interactive-broker-python-web-api
+xlwings

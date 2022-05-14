@@ -1,7 +1,7 @@
+from email.policy import default
+from tkinter.tix import Tree
+from src.table import Table
 import fxcmpy
-from src.db import Db
-from src.csv import Csv
-import pandas as pd
 
 try:
     from keys.keys import FXCM as TOKEN
@@ -12,36 +12,59 @@ except Exception as e:
 
 class Fxcm:
     def __init__(self):
-        self.connect()
         self.account_id = 889071
+        self.connect()
+        self.is_disabled = False
 
     def connect(self):
         print("connecting to FXCM API...")
         # raise timeout error if connection takes too long
-        self.con = fxcmpy.fxcmpy(access_token=TOKEN, log_level="error")
-        print("connected to FXCM API!")
+        try:
+            self.con = fxcmpy.fxcmpy(access_token=TOKEN, log_level="error")
+            print("connected!")
+        except Exception as e:
+            print(e)
+            self.is_disabled = True
+            print("FXCM has been DISABLED for this session")
 
-    def getApi(self):
-        pass
+    def open_new_position(self, params):
+        defaults = {
+            "symbol": "USD/JPY",
+            "is_buy": True,
+            "amount": 10,
+            "time_in_force": "GTC",
+            "order_type": "AtMarket",
+            "rate": 0,
+            "is_in_pips": False,
+            "limit": None,
+            "at_market": 0,
+            "stop": None,
+            "trailing_step": None,
+            "account_id": None,
+        }
+        self.con.open_trade(**defaults)
 
-    def get_account(self, existing_accounts):
+    def get_account(self, accounts_table):
         cols = ["accountId", "balance", "usableMargin", "grossPL"]
 
         try:
             accounts = self.con.get_accounts()
         except Exception as e:
             print(e)
-            return existing_accounts
+            return accounts_table.existing_table[
+                accounts_table.existing_table.account_id == self.account_id
+            ]
 
         # generate additional columns
         accounts_db = accounts[cols].copy()
         accounts_db.insert(0, "broker", ["FXCM"] * len(accounts_db.index))
         accounts_db.insert(2, "account_name", [""] * len(accounts_db.index))
-        accounts_db.columns = [Csv.accounts_cols]
+        accounts_db.columns = [Table.accounts_cols]
+        accounts_db.columns = accounts_db.columns.get_level_values(0)
 
         return accounts_db
 
-    def get_positions(self, existing_positions):
+    def get_positions(self, positions_table):
         cols = [
             "accountId",
             "tradeId",
@@ -59,11 +82,13 @@ class Fxcm:
             positions = self.con.get_open_positions()
         except Exception as e:
             print(e)
-            return existing_positions
+            return positions_table.existing_table[
+                positions_table.existing_table.account_id == self.account_id
+            ]
 
         positions_db = positions[cols].copy()
         positions_db["time"] = positions_db["time"].apply(
-            lambda x: f"{x[2:4]}-{x[0:2]}-{x[4:8]}"
+            lambda x: f"{x[4:8]}-{x[0:2]}-{x[2:4]}T{x[8:10]}:{x[10:12]}:{x[12:]}"
         )
 
         # insert additional columns at positions to match with order of Db.open_positions_columns
@@ -72,6 +97,7 @@ class Fxcm:
         )
         positions_db.insert(4, "size", positions["amountK"].copy())
         positions_db.insert(11, "swap", [""] * len(positions_db.index))
-        positions_db.columns = [Csv.open_positions_cols]
+        positions_db.columns = [Table.open_positions_cols]
+        positions_db.columns = positions_db.columns.get_level_values(0)
 
         return positions_db
